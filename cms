@@ -1,0 +1,105 @@
+#!/bin/bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+echo $DIR
+PRIMARY_DOMAIN=''
+ALT_DOMAINS=''
+PLATFORM=''
+function containsElem {
+  local e
+  for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
+  return 1
+}
+function cms_select {
+	echo ''
+	echo "You've chosen to install a site."
+	echo "The sites primary domain name will be $PRIMARY_DOMAIN."
+	echo "The sites alternative domain names will be $ALT_DOMAINS."
+	echo ''
+	PS3='Please choose: '
+  CMS=("Drupal" "Wordpress")
+	select opt in "${CMS[@]}"
+	do
+		if containsElem $opt "${CMS[@]}"; then
+			PLATFORM=$opt
+			echo $PLATFORM
+			echo $PRIMARY_DOMAIN $ALT_DOMAINS
+			install_cms $opt
+		else
+			echo "Incorrect choice."
+		fi
+	done
+}
+function install_cms {
+	mkdir '/var/www/webroot/'$PRIMARY_DOMAIN
+	echo 'Now installing' $1
+	quit
+}
+function quit {
+  exit
+}
+function check_domain {
+	if [[ $1 =~ ^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,6}$ ]]; then
+		echo "Matched"
+	else
+		echo "Not matched"
+	fi
+}
+function read_primary_domain {
+	echo ''
+	echo 'Please enter the primary domain name.'
+	echo 'This will be the location of the site in the web root.'
+	echo ''
+	read PRIMARY_DOMAIN
+	check_domain $PRIMARY_DOMAIN
+	read_alternative_domains
+}
+function read_alternative_domains {
+	echo ''
+	echo 'Please enter any alternative domain names, separated by spaces.'
+	echo ''
+	read ALT_DOMAINS
+	IFS=' ' read -r -a domains <<< "$ALT_DOMAINS"
+	for element in "${domains[@]}"
+	do
+	    check_domain $element
+	done
+	cms_select
+}
+function show_domains {
+	echo $PRIMARY_DOMAIN $ALT_DOMAINS
+}
+function welcome {
+	PS3='Please choose: '
+	OPTIONS=("Create" "Publish" "Unpublish" "Delete" "Backup")
+	select opt in "${OPTIONS[@]}"; do
+	  if [ "$opt" = "Create" ]; then
+	  	. $DIR'/includes/install.sh'
+	    . $DIR$PLATFORM
+	    break
+	  elif [ "$opt" = "Publish" ]; then
+	  	echo "Publishing"
+	    welcome
+	  elif [ "$opt" = "Unpublish" ]; then
+	  	echo "Unpublishing"
+	    welcome
+	  elif [ "$opt" = "Delete" ]; then
+	  	echo "Removing Site"
+	    welcome
+	  elif [ "$opt" = "Backup" ]; then
+	  	echo "Backing Up Site"
+	    welcome
+	  else
+	  	echo "Close, but no cigar"
+	   	welcome
+	  fi
+	done
+}
+
+welcome
